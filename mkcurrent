@@ -1,0 +1,39 @@
+#!/usr/bin/env python3
+
+
+import sys
+import os
+import re
+
+PATH = os.path.join(os.getcwd(), '.versiondir')
+def make_current(filename, version):
+    pattern = re.compile(re.escape(filename) + r'\.\d+$')
+    paths = []
+    for f in os.listdir(PATH):
+        if re.match(pattern, f):
+            paths.append(f)
+
+    paths.sort()
+    os.rename(os.path.join(PATH, filename+"."+str(version)), os.path.join(PATH, 'temp'))
+    for i in range(version - 2, -1, -1):
+        file = paths[i]
+        p = os.path.join(PATH, file)
+        os.rename(p, p[:-1] + str(int(p[-1])+1))
+    os.rename(os.path.join(PATH, 'temp'), os.path.join(PATH, filename + '.1'))
+
+def main():
+    if len(sys.argv) < 3:
+        print("Format: ./mkcurrent <filename> <version>")
+        return
+    filename = sys.argv[1]
+    version = int(sys.argv[2])
+    make_current(filename, version)
+
+    
+    
+    
+
+
+
+if __name__ == '__main__':
+    main()

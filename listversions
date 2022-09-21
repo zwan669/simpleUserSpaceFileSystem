@@ -1,0 +1,29 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+import re
+
+PATH = os.path.join(os.getcwd(), '.versiondir')
+def list_versions(filename):
+    pattern = re.compile(re.escape(filename) + r'\.\d+$')
+    versions = []
+    for f in os.listdir(PATH):
+        if re.match(pattern, f):
+            versions.append(f)
+
+    versions.sort()
+    for version in versions:
+        print(version)
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: ./listversions <filename>")
+        return
+    filename = sys.argv[1]
+    list_versions(filename)
+
+    
+
+if __name__ == '__main__':
+    main()

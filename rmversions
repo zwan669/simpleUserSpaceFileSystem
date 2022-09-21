@@ -1,0 +1,30 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+import re
+
+PATH = os.path.join(os.getcwd(), '.versiondir')
+def remove_versions(filename):
+    pattern = re.compile(re.escape(filename) + r'\.((?!1)\d)+$')
+    versions = []
+    for f in os.listdir(PATH):
+        if re.match(pattern, f):
+            versions.append(f)
+
+
+    for version in versions:
+        if os.path.isfile(os.path.join(PATH, version)):
+            os.remove(os.path.join(PATH, version))
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: ./rmversions <filename>")
+        return
+    filename = sys.argv[1]
+    remove_versions(filename)
+
+    
+
+if __name__ == '__main__':
+    main()
