@@ -6,6 +6,9 @@ import logging
 import os
 import sys
 import errno
+import shutil
+import filecmp
+import re
 
 from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
 
@@ -26,6 +29,8 @@ class VersionFS(LoggingMixIn, Operations):
     def _full_path(self, partial):
         if partial.startswith("/"):
             partial = partial[1:]
+        if partial != "":
+            partial = partial + ".1"
         path = os.path.join(self.root, partial)
         return path
 
@@ -56,12 +61,16 @@ class VersionFS(LoggingMixIn, Operations):
                      'st_gid', 'st_mode', 'st_mtime', 'st_nlink', 'st_size', 'st_uid'))
 
     def readdir(self, path, fh):
-        # print ("readdir:", path)
+        #print "readdir:", path
         full_path = self._full_path(path)
-
         dirents = ['.', '..']
-        if os.path.isdir(full_path):
-            dirents.extend(os.listdir(full_path))
+        if os.path.isdir(full_path): 
+            latest_versions = []
+            for f in os.listdir(full_path):
+                if f[-2:] == ".1":
+                    latest_versions.append(f[:-2])
+            dirents.extend(latest_versions)
+	
         for r in dirents:
             yield r
 
@@ -121,6 +130,8 @@ class VersionFS(LoggingMixIn, Operations):
     def open(self, path, flags):
         print ('** open:', path, '**')
         full_path = self._full_path(path)
+        backup = full_path+".backup"
+        shutil.copyfile(full_path, backup)
         return os.open(full_path, flags)
 
     def create(self, path, mode, fi=None):
@@ -150,6 +161,42 @@ class VersionFS(LoggingMixIn, Operations):
 
     def release(self, path, fh):
         print ('** release', path, '**')
+        full_path = self._full_path(path)
+        backup = self._full_path(path) + ".backup"
+
+        if not os.path.exists(backup):
+            return os.close(fh)
+        if filecmp.cmp(full_path, backup, shallow = False):
+            os.remove(backup)
+            return os.close(fh)
+
+        directory = os.path.dirname(full_path)
+        files = []
+        pattern = re.compile(re.escape(path[1:]) + r'\.\d+$')
+        for f in os.listdir(directory):
+            if (re.match(pattern, f)):
+                files.append(f)
+
+        files.sort(reverse=True)
+
+        def rearrange_versions():
+            for i in range(0, len(files)-1):
+                file = files[i]
+                p = os.path.join(directory, file)
+                os.rename(p, p[:-1] + str(int(p[-1])+1))
+
+            os.rename(backup, self._full_path(path)[:-1] + str(2))
+
+        MAX_VERSION_NUMBER = 6
+        if len(files) < MAX_VERSION_NUMBER:
+            rearrange_versions()
+        else:
+            discard = files.pop(0)
+            os.remove(os.path.join(directory, discard))
+            rearrange_versions()
+
+    
+        os.remove(backup)
         return os.close(fh)
 
     def fsync(self, path, fdatasync, fh):
